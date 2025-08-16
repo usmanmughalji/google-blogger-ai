@@ -31,7 +31,7 @@ def generate_token():
                 CLIENT_SECRETS_FILE, SCOPES
             )
             # Use a fixed port for the redirect URI to avoid mismatch issues
-            credentials = flow.run_local_server(port=8080, open_browser=True)
+            credentials = flow.run_local_server(port=0, open_browser=True)
         
         # Save the credentials for the next run
         with open(TOKEN_FILE, "wb") as token:
