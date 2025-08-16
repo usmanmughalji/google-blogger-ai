@@ -3,3 +3,6 @@ venv/
 
 # Ignore client secrets file
 client_secrets.json
+
+# Ignore token file
+blogger_token.pickle
