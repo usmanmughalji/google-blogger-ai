@@ -1,0 +1,5 @@
+# Ignore local python virtual environment
+venv/
+
+# Ignore client secrets file
+client_secrets.json

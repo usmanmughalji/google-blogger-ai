@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blogger API Integration</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+        .header {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        .button-primary {
+            background-color: #3498db;
+            color: white;
+            padding: 0.8rem 1.8rem;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .button-primary:hover {
+            background-color: #2980b9;
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        .card {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid #eee;
+        }
+        .card h3 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.75rem;
+        }
+        .card p {
+            color: #555;
+            line-height: 1.6;
+        }
+        .card .meta {
+            font-size: 0.9rem;
+            color: #888;
+            margin-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card .meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .card .meta i {
+            color: #3498db;
+        }
+        .error-message {
+            color: #e74c3c;
+            background-color: #fdeded;
+            border: 1px solid #e74c3c;
+            padding: 0.8rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-weight: 500;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3498db;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-6">
+    <div class="container">
+        <header class="header">
+            <h1>Blogger API Integration</h1>
+            <p>Manage your blog posts with ease using the Google Blogger API.</p>
+        </header>
+
+        <section id="auth-section" class="text-center mb-8">
+            <button id="authorize-button" class="button-primary">
+                <i class="fas fa-user-lock"></i> Authorize with Google
+            </button>
+        </section>
+
+        <section id="blog-selection-section" class="hidden mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Select Your Blog</h2>
+            <select id="blog-select" class="input-field mb-4"></select>
+            <button id="load-posts-button" class="button-primary">
+                <i class="fas fa-sync-alt"></i> Load Posts
+            </button>
+        </section>
+
+        <section id="post-creation-section" class="hidden mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Create New Post</h2>
+            <input type="text" id="post-title" placeholder="Post Title" class="input-field mb-4">
+            <textarea id="post-content" placeholder="Post Content (HTML allowed)" class="input-field h-32 mb-4"></textarea>
+            <button id="create-post-button" class="button-primary">
+                <i class="fas fa-plus-circle"></i> Create Post
+            </button>
+        </section>
+
+        <section id="posts-list-section" class="hidden">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Your Blog Posts</h2>
+            <div id="posts-container">
+                <!-- Blog posts will be loaded here -->
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const authorizeButton = document.getElementById('authorize-button');
+        const blogSelectionSection = document.getElementById('blog-selection-section');
+        const blogSelect = document.getElementById('blog-select');
+        const loadPostsButton = document.getElementById('load-posts-button');
+        const postCreationSection = document.getElementById('post-creation-section');
+        const postTitleInput = document.getElementById('post-title');
+        const postContentTextarea = document.getElementById('post-content');
+        const createPostButton = document.getElementById('create-post-button');
+        const postsListSection = document.getElementById('posts-list-section');
+        const postsContainer = document.getElementById('posts-container');
+
+        let selectedBlogId = null;
+
+        // Function to show/hide sections
+        function showSection(sectionId) {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('blog-selection-section').classList.add('hidden');
+            document.getElementById('post-creation-section').classList.add('hidden');
+            document.getElementById('posts-list-section').classList.add('hidden');
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        // Handle authorization
+        authorizeButton.addEventListener('click', () => {
+            const authWindow = window.open('/authorize', '_blank', 'width=600,height=700');
+            window.addEventListener('message', (event) => {
+                if (event.data === 'authorization_successful') {
+                    fetchBlogs();
+                }
+            });
+        });
+
+        // Fetch blogs after authorization
+        async function fetchBlogs() {
+            try {
+                const response = await fetch('/get_blogs');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                blogSelect.innerHTML = ''; // Clear previous options
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(blog => {
+                        const option = document.createElement('option');
+                        option.value = blog.id;
+                        option.textContent = blog.name;
+                        blogSelect.appendChild(option);
+                    });
+                    selectedBlogId = blogSelect.value; // Set initial selected blog
+                    showSection('blog-selection-section');
+                    showSection('post-creation-section');
+                    showSection('posts-list-section');
+                    fetchPosts(selectedBlogId); // Load posts for the first blog by default
+                } else {
+                    postsContainer.innerHTML = '<p class="text-center text-gray-600">No blogs found for your account.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching blogs:', error);
+                postsContainer.innerHTML = `<p class="error-message">Error loading blogs: ${error.message}</p>`;
+            }
+        }
+
+        // Handle blog selection change
+        blogSelect.addEventListener('change', (event) => {
+            selectedBlogId = event.target.value;
+            fetchPosts(selectedBlogId);
+        });
+
+        // Load posts for the selected blog
+        loadPostsButton.addEventListener('click', () => {
+            if (selectedBlogId) {
+                fetchPosts(selectedBlogId);
+            } else {
+                alert('Please select a blog first.');
+            }
+        });
+
+        // Fetch and display posts
+        async function fetchPosts(blogId) {
+            postsContainer.innerHTML = '<div class="loading-spinner"></div><p class="text-center text-gray-600 mt-4">Loading posts...</p>';
+            try {
+                const response = await fetch(`/get_posts/${blogId}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                postsContainer.innerHTML = ''; // Clear previous posts
+                if (data.items && data.items.length > 0) {
+                    data.items.forEach(post => {
+                        const postCard = document.createElement('div');
+                        postCard.className = 'card';
+                        postCard.innerHTML = `
+                            <h3>${post.title}</h3>
+                            <p>${post.content.substring(0, 200)}...</p>
+                            <div class="meta">
+                                <span><i class="fas fa-calendar-alt"></i> ${new Date(post.published).toLocaleDateString()}</span>
+                                <span><i class="fas fa-comments"></i> ${post.replies ? post.replies.totalItems : 0} Comments</span>
+                                <a href="${post.url}" target="_blank" class="text-blue-500 hover:underline"><i class="fas fa-external-link-alt"></i> View Post</a>
+                            </div>
+                        `;
+                        postsContainer.appendChild(postCard);
+                    });
+                } else {
+                    postsContainer.innerHTML = '<p class="text-center text-gray-600">No posts found for this blog.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching posts:', error);
+                postsContainer.innerHTML = `<p class="error-message">Error loading posts: ${error.message}</p>`;
+            }
+        }
+
+        // Create new post
+        createPostButton.addEventListener('click', async () => {
+            const title = postTitleInput.value.trim();
+            const content = postContentTextarea.value.trim();
+
+            if (!title || !content) {
+                alert('Please enter both title and content for the post.');
+                return;
+            }
+
+            if (!selectedBlogId) {
+                alert('Please select a blog first.');
+                return;
+            }
+
+            createPostButton.disabled = true;
+            createPostButton.innerHTML = '<div class="loading-spinner"></div> Creating...';
+
+            try {
+                const response = await fetch(`/create_post/${selectedBlogId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ title, content })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const newPost = await response.json();
+                alert('Post created successfully!');
+                postTitleInput.value = '';
+                postContentTextarea.value = '';
+                fetchPosts(selectedBlogId); // Refresh posts list
+            } catch (error) {
+                console.error('Error creating post:', error);
+                alert(`Error creating post: ${error.message}`);
+            } finally {
+                createPostButton.disabled = false;
+                createPostButton.innerHTML = '<i class="fas fa-plus-circle"></i> Create Post';
+            }
+        });
+
+        // Initial check for authorization status (optional, can be improved with persistent sessions)
+        // For this simple example, we rely on the user clicking authorize.
+        // If you want to check on page load, you'd need a backend endpoint to verify session credentials.
+        // For now, we'll just show the auth button.
+        showSection('auth-section');
+    </script>
+</body>
+</html>
