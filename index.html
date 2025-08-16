@@ -130,13 +130,7 @@
             <p>Manage your blog posts with ease using the Google Blogger API.</p>
         </header>
 
-        <section id="auth-section" class="text-center mb-8">
-            <button id="authorize-button" class="button-primary">
-                <i class="fas fa-user-lock"></i> Authorize with Google
-            </button>
-        </section>
-
-        <section id="blog-selection-section" class="hidden mb-8">
+        <section id="blog-selection-section" class="mb-8">
             <h2 class="text-2xl font-semibold text-gray-800 mb-4">Select Your Blog</h2>
             <select id="blog-select" class="input-field mb-4"></select>
             <button id="load-posts-button" class="button-primary">
@@ -162,7 +156,6 @@
     </div>
 
     <script>
-        const authorizeButton = document.getElementById('authorize-button');
         const blogSelectionSection = document.getElementById('blog-selection-section');
         const blogSelect = document.getElementById('blog-select');
         const loadPostsButton = document.getElementById('load-posts-button');
@@ -178,7 +171,6 @@
         // Function to show/hide sections
         function showSections(sectionIds) {
             // Hide all sections first
-            document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('blog-selection-section').classList.add('hidden');
             document.getElementById('post-creation-section').classList.add('hidden');
             document.getElementById('posts-list-section').classList.add('hidden');
@@ -189,20 +181,15 @@
             });
         }
 
-        // Handle authorization
-        authorizeButton.addEventListener('click', () => {
-            console.log('Authorize button clicked. Redirecting for authorization.');
-            window.location.href = '/authorize'; // Redirect the current window for authorization
-        });
-
-        // Fetch blogs after authorization
+        // Fetch blogs
         async function fetchBlogs() {
             console.log('fetchBlogs function called.');
             try {
                 const response = await fetch('/get_blogs');
                 console.log('Response from /get_blogs:', response);
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}. ${errorData.error || ''}`);
                 }
                 const data = await response.json();
                 console.log('Data from /get_blogs:', data);
@@ -223,7 +210,9 @@
             } catch (error) {
                 console.error('Error fetching blogs:', error);
                 let errorMessage = `Error loading blogs: ${error.message}.`;
-                if (error.message.includes('500')) {
+                if (error.message.includes('401')) {
+                    errorMessage += ` Please ensure you have run 'python generate_blogger_token.py' to authorize the application.`;
+                } else if (error.message.includes('500')) {
                     errorMessage += ` This often means the Blogger API is not enabled for your Google Cloud Project, or there's an issue with your credentials. Please ensure the Blogger API is enabled in your Google Cloud Console and try again after a few minutes if you just enabled it.`;
                 }
                 postsContainer.innerHTML = `<p class="error-message">${errorMessage}</p>`;
@@ -324,17 +313,8 @@
             }
         });
 
-        // Initial check for authorization status
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('auth_success') === 'true') {
-            console.log('Authorization successful via URL parameter. Calling fetchBlogs().');
-            // Clear the query parameter to prevent re-triggering on refresh
-            history.replaceState({}, document.title, window.location.pathname);
-            fetchBlogs();
-        } else {
-            console.log('No auth_success parameter found. Showing auth section.');
-            showSections(['auth-section']);
-        }
+        // Initial load of blogs
+        fetchBlogs();
     </script>
 </body>
 </html>

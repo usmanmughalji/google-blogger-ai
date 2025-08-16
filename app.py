@@ -1,7 +1,7 @@
 from flask import Flask, request, redirect, url_for, session, jsonify, send_from_directory
 import os
-import json
-from google_auth_oauthlib.flow import Flow
+import pickle
+from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 import requests
@@ -14,6 +14,7 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 # Configuration for Google API
 CLIENT_SECRETS_FILE = "client_secrets.json"
+TOKEN_FILE = "blogger_token.pickle" # Token file for Blogger API
 SCOPES = ['https://www.googleapis.com/auth/blogger']
 
 # Ensure client_secrets.json exists
@@ -21,55 +22,37 @@ if not os.path.exists(CLIENT_SECRETS_FILE):
     print(f"Error: {CLIENT_SECRETS_FILE} not found. Please download it from Google Cloud Console.")
     exit()
 
-# Initialize the OAuth 2.0 flow
-flow = Flow.from_client_secrets_file(
-    CLIENT_SECRETS_FILE, scopes=SCOPES,
-    redirect_uri='http://localhost:5000/oauth2callback'
-)
+# Function to get credentials from the pickle file
+def get_credentials():
+    credentials = None
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, "rb") as token:
+            credentials = pickle.load(token)
+    
+    if not credentials or not credentials.valid:
+        if credentials and credentials.expired and credentials.refresh_token:
+            credentials.refresh(Request())
+            # Save refreshed credentials
+            with open(TOKEN_FILE, "wb") as token:
+                pickle.dump(credentials, token)
+        else:
+            # If no valid credentials, or refresh failed, indicate unauthorized
+            return None
+    return credentials
 
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/authorize')
-def authorize():
-    authorization_url, state = flow.authorization_url(
-        access_type='offline',
-        include_granted_scopes='true'
-    )
-    session['state'] = state
-    return redirect(authorization_url)
-
-@app.route('/oauth2callback')
-def oauth2callback():
-    # Ensure the state parameter is present in the request URL for security
-    if 'state' not in request.args:
-        return jsonify({"error": "State parameter missing in callback"}), 400
-
-    # The flow.fetch_token method will automatically validate the state
-    flow.fetch_token(authorization_response=request.url)
-
-    credentials = flow.credentials
-    # Clean up the state from the session after successful token fetch
-    session.pop('state', None)
-    session['credentials'] = {
-        'token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_uri': credentials.token_uri,
-        'client_id': credentials.client_id,
-        'client_secret': credentials.client_secret,
-        'scopes': credentials.scopes
-    }
-    # Redirect back to the main page with a success indicator
-    return redirect(url_for('index', auth_success='true'))
+# Remove /authorize and /oauth2callback routes as token generation is external
 
 @app.route('/get_blogs')
 def get_blogs():
-    if 'credentials' not in session:
-        return jsonify({"error": "Not authorized"}), 401
+    creds = get_credentials()
+    if not creds:
+        return jsonify({"error": "Not authorized. Please run generate_blogger_token.py first."}), 401
 
-    credentials = Credentials(**session['credentials'])
-    service = build('blogger', 'v3', credentials=credentials)
+    service = build('blogger', 'v3', credentials=creds)
 
     try:
         blogs = service.blogs().listByUser(userId='self').execute()
@@ -81,11 +64,11 @@ def get_blogs():
 
 @app.route('/get_posts/<blog_id>')
 def get_posts(blog_id):
-    if 'credentials' not in session:
-        return jsonify({"error": "Not authorized"}), 401
+    creds = get_credentials()
+    if not creds:
+        return jsonify({"error": "Not authorized. Please run generate_blogger_token.py first."}), 401
 
-    credentials = Credentials(**session['credentials'])
-    service = build('blogger', 'v3', credentials=credentials)
+    service = build('blogger', 'v3', credentials=creds)
 
     try:
         posts = service.posts().list(blogId=blog_id).execute()
@@ -97,11 +80,11 @@ def get_posts(blog_id):
 
 @app.route('/create_post/<blog_id>', methods=['POST'])
 def create_post(blog_id):
-    if 'credentials' not in session:
-        return jsonify({"error": "Not authorized"}), 401
+    creds = get_credentials()
+    if not creds:
+        return jsonify({"error": "Not authorized. Please run generate_blogger_token.py first."}), 401
 
-    credentials = Credentials(**session['credentials'])
-    service = build('blogger', 'v3', credentials=credentials)
+    service = build('blogger', 'v3', credentials=creds)
 
     data = request.get_json()
     title = data.get('title')
