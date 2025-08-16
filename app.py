@@ -9,6 +9,9 @@ import requests
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Replace with a strong, unique key in production
 
+# This is for development only, allowing OAuth 2.0 to work over HTTP
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
 # Configuration for Google API
 CLIENT_SECRETS_FILE = "client_secrets.json"
 SCOPES = ['https://www.googleapis.com/auth/blogger']
@@ -39,10 +42,16 @@ def authorize():
 
 @app.route('/oauth2callback')
 def oauth2callback():
-    state = session['state']
+    # Ensure the state parameter is present in the request URL for security
+    if 'state' not in request.args:
+        return jsonify({"error": "State parameter missing in callback"}), 400
+
+    # The flow.fetch_token method will automatically validate the state
     flow.fetch_token(authorization_response=request.url)
 
     credentials = flow.credentials
+    # Clean up the state from the session after successful token fetch
+    session.pop('state', None)
     session['credentials'] = {
         'token': credentials.token,
         'refresh_token': credentials.refresh_token,
