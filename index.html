@@ -176,32 +176,36 @@
         let selectedBlogId = null;
 
         // Function to show/hide sections
-        function showSection(sectionId) {
+        function showSections(sectionIds) {
+            // Hide all sections first
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('blog-selection-section').classList.add('hidden');
             document.getElementById('post-creation-section').classList.add('hidden');
             document.getElementById('posts-list-section').classList.add('hidden');
-            document.getElementById(sectionId).classList.remove('hidden');
+
+            // Show specified sections
+            sectionIds.forEach(id => {
+                document.getElementById(id).classList.remove('hidden');
+            });
         }
 
         // Handle authorization
         authorizeButton.addEventListener('click', () => {
-            const authWindow = window.open('/authorize', '_blank', 'width=600,height=700');
-            window.addEventListener('message', (event) => {
-                if (event.data === 'authorization_successful') {
-                    fetchBlogs();
-                }
-            });
+            console.log('Authorize button clicked. Redirecting for authorization.');
+            window.location.href = '/authorize'; // Redirect the current window for authorization
         });
 
         // Fetch blogs after authorization
         async function fetchBlogs() {
+            console.log('fetchBlogs function called.');
             try {
                 const response = await fetch('/get_blogs');
+                console.log('Response from /get_blogs:', response);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
+                console.log('Data from /get_blogs:', data);
                 blogSelect.innerHTML = ''; // Clear previous options
                 if (data.items && data.items.length > 0) {
                     data.items.forEach(blog => {
@@ -211,16 +215,18 @@
                         blogSelect.appendChild(option);
                     });
                     selectedBlogId = blogSelect.value; // Set initial selected blog
-                    showSection('blog-selection-section');
-                    showSection('post-creation-section');
-                    showSection('posts-list-section');
+                    showSections(['blog-selection-section', 'post-creation-section', 'posts-list-section']);
                     fetchPosts(selectedBlogId); // Load posts for the first blog by default
                 } else {
                     postsContainer.innerHTML = '<p class="text-center text-gray-600">No blogs found for your account.</p>';
                 }
             } catch (error) {
                 console.error('Error fetching blogs:', error);
-                postsContainer.innerHTML = `<p class="error-message">Error loading blogs: ${error.message}</p>`;
+                let errorMessage = `Error loading blogs: ${error.message}.`;
+                if (error.message.includes('500')) {
+                    errorMessage += ` This often means the Blogger API is not enabled for your Google Cloud Project, or there's an issue with your credentials. Please ensure the Blogger API is enabled in your Google Cloud Console and try again after a few minutes if you just enabled it.`;
+                }
+                postsContainer.innerHTML = `<p class="error-message">${errorMessage}</p>`;
             }
         }
 
@@ -318,11 +324,17 @@
             }
         });
 
-        // Initial check for authorization status (optional, can be improved with persistent sessions)
-        // For this simple example, we rely on the user clicking authorize.
-        // If you want to check on page load, you'd need a backend endpoint to verify session credentials.
-        // For now, we'll just show the auth button.
-        showSection('auth-section');
+        // Initial check for authorization status
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('auth_success') === 'true') {
+            console.log('Authorization successful via URL parameter. Calling fetchBlogs().');
+            // Clear the query parameter to prevent re-triggering on refresh
+            history.replaceState({}, document.title, window.location.pathname);
+            fetchBlogs();
+        } else {
+            console.log('No auth_success parameter found. Showing auth section.');
+            showSections(['auth-section']);
+        }
     </script>
 </body>
 </html>

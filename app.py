@@ -60,28 +60,8 @@ def oauth2callback():
         'client_secret': credentials.client_secret,
         'scopes': credentials.scopes
     }
-    return redirect(url_for('success'))
-
-@app.route('/success')
-def success():
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Authorization Successful</title>
-        <script>
-            window.onload = function() {
-                window.opener.postMessage('authorization_successful', window.location.origin);
-                window.close();
-            };
-        </script>
-    </head>
-    <body>
-        <h1>Authorization Successful!</h1>
-        <p>You can close this window now.</p>
-    </body>
-    </html>
-    """
+    # Redirect back to the main page with a success indicator
+    return redirect(url_for('index', auth_success='true'))
 
 @app.route('/get_blogs')
 def get_blogs():
@@ -95,6 +75,8 @@ def get_blogs():
         blogs = service.blogs().listByUser(userId='self').execute()
         return jsonify(blogs)
     except Exception as e:
+        import traceback
+        traceback.print_exc() # Print full traceback to console
         return jsonify({"error": str(e)}), 500
 
 @app.route('/get_posts/<blog_id>')
@@ -109,6 +91,8 @@ def get_posts(blog_id):
         posts = service.posts().list(blogId=blog_id).execute()
         return jsonify(posts)
     except Exception as e:
+        import traceback
+        traceback.print_exc() # Print full traceback to console
         return jsonify({"error": str(e)}), 500
 
 @app.route('/create_post/<blog_id>', methods=['POST'])
@@ -137,6 +121,8 @@ def create_post(blog_id):
         new_post = service.posts().insert(blogId=blog_id, body=post_body).execute()
         return jsonify(new_post)
     except Exception as e:
+        import traceback
+        traceback.print_exc() # Print full traceback to console
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
